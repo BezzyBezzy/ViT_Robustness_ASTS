@@ -20,17 +20,24 @@ ASTS combats this by introducing learnable, per-head temperature parameters into
 
 ---
 ## Methodology:
+
 Our approach is inspired by biological "Visual Stability"—the ability to maintain focus on key semantic features regardless of static or visual noise. We achieve this in ViTs through a highly parameter-efficient process.
-1. Per-Head Adaptive Temperature
-   Instead of a static scaling factor, we inject a unique, learnable temperature parameter ($T_{l,h}$) for every layer $l$ and head $h$ into the standard self-attention equation:
-   Attention(Q,K,V) = softmax( (Q K^T) / (T_{l,h} * sqrt(d_k)) ) V
+
+1. **Per-Head Adaptive Temperature**:
+Instead of a static scaling factor, we inject a unique, learnable temperature parameter ($T_{l,h}$) for every layer $l$ and head $h$ into the standard self-attention equation:
+$$Attention(Q,K,V) = softmax \left( \frac{Q K^T}{T_{l,h} \sqrt{d_k}} \right) V$$
+
+
 By dynamically adjusting $T_{l,h}$, the model controls the entropy (sharpness) of the attention distribution. If an adversarial patch attempts to hijack a head, the model increases $T$, flattening the distribution to dampen the noise. For stable heads, $T$ remains low to preserve sharp, discriminative feature extraction.
-3. The CA3 Algorithm:
-   To train these temperatures, we use the Clean-Adversarial Attention Alignment (CA3) algorithm. During the forward pass:
-   * Clean Pass: We generate an attention map ($P_{clean}$) using a clean image.
-   * Adversarial Pass: We generate a perturbed image using an attack (PGD/CW) and extract its hijacked attention map ($Q_{adv}$).
-   * Alignment: We penalize the structural difference between $P_{clean}$ and $Q_{adv}$ using either Kullback-Leibler (KL) or symmetric Jensen-Shannon (JS) divergence.
-4. Parameter-Efficient Fine-Tuning: During backpropagation, the pre-trained weights of the ViT backbone remain completely frozen. The gradient flows exclusively to the $T_{l,h}$ parameters based on the alignment error. This ensures a lightweight, highly efficient training process that routes existing representations more robustly, rather than requiring the computationally expensive retraining of the entire architecture.
+2. **The CA3 Algorithm**:
+To train these temperatures, we use the Clean-Adversarial Attention Alignment (CA3) algorithm. During the forward pass:
+* **Clean Pass:** We generate an attention map ($P_{clean}$) using a clean image.
+* **Adversarial Pass:** We generate a perturbed image using an attack (PGD/CW) and extract its hijacked attention map ($Q_{adv}$).
+* **Alignment:** We penalize the structural difference between $P_{clean}$ and $Q_{adv}$ using either Kullback-Leibler (KL) or symmetric Jensen-Shannon (JS) divergence.
+
+
+3. **Parameter-Efficient Fine-Tuning**:
+During backpropagation, the pre-trained weights of the ViT backbone remain completely frozen. The gradient flows exclusively to the $T_{l,h}$ parameters based on the alignment error. This ensures a lightweight, highly efficient training process that routes existing representations more robustly, rather than requiring the computationally expensive retraining of the entire architecture.
 
 
 ## Key Findings & Empirical Results
