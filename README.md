@@ -31,6 +31,7 @@ $$Attention(Q,K,V) = softmax \left( \frac{Q K^T}{T_{l,h} \sqrt{d_k}} \right) V$$
 
 
 By dynamically adjusting $T_{l,h}$, the model controls the entropy (sharpness) of the attention distribution. If an adversarial patch attempts to hijack a head, the model increases $T$, flattening the distribution to dampen the noise. For stable heads, $T$ remains low to preserve sharp, discriminative feature extraction.
+
 2. **The CA3 Algorithm**:
 To train these temperatures, we use the Clean-Adversarial Attention Alignment (CA3) algorithm. During the forward pass:
 * **Clean Pass:** We generate an attention map ($P_{clean}$) using a clean image.
