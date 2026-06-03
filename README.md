@@ -39,7 +39,7 @@ The choice of loss function radically alters *where* the model defends itself:
 * When forced to preserve clean accuracy (Mixed Task Loss), the model cannot radically alter its deep semantic representations. Therefore, it **disperses its temperature scaling** throughout the early and middle layers to intercept adversarial noise before it reaches deep pathways.
 * Conversely, models trained purely on adversarial data **concentrate their defenses** almost entirely in the deepest modules (e.g., Modules 10 and 11).
 
-### 3. Threat-Specific Attention Dynamics (The Epoch 15 Pivot)
+### 3. Threat-Specific Attention Dynamics
 
 The model learns distinctly different attention distributions depending on the attack optimizer. During the initial PGD training curriculum, the model broadly flattens attention distributions (steadily increasing the temperature variance). However, upon transitioning to the **CW attack at Epoch 15**, the behavior sharply pivots: the model shrinks its overall temperature variance and relies entirely on a highly specialized, isolated subset of extreme outliers (e.g., temperatures scaling up to $T \approx 25$).
 
@@ -91,7 +91,7 @@ objective:
 
 ### Attacks (Curriculum Schedule)
 
-To reproduce the curriculum from the ASTS paper, attacks progressively increase in strength before shifting optimization methods (PGD to CW) at Epoch 15:
+To reproduce our results, attacks progressively increase in strength before shifting optimization methods (PGD to CW) at Epoch 15:
 
 ```yaml
 attacks:
@@ -112,9 +112,7 @@ attacks:
 
 ```
 
-## Reproducing Paper Results
-
-To replicate the specific configurations detailed in the ASTS research paper:
+## Reproducing Our Results
 
 ### Config 2: Maximum Robustness (Adv Only + KL)
 
