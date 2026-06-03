@@ -25,6 +25,8 @@ Our approach is inspired by biological "Visual Stability"—the ability to maint
 
 1. **Per-Head Adaptive Temperature**:
 Instead of a static scaling factor, we inject a unique, learnable temperature parameter ($T_{l,h}$) for every layer $l$ and head $h$ into the standard self-attention equation:
+
+
 $$Attention(Q,K,V) = softmax \left( \frac{Q K^T}{T_{l,h} \sqrt{d_k}} \right) V$$
 
 
