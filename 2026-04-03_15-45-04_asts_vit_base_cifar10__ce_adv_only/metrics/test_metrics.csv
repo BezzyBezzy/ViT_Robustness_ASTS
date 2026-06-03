@@ -1,0 +1,6 @@
+attack,accuracy,precision_macro,recall_macro,f1_macro,precision_weighted,recall_weighted,f1_weighted,seconds,num_samples
+clean,0.9429,0.943117971,0.9429,0.942882579,0.943117971,0.9429,0.942882579,9.853858232,2500
+pgd_20,0.4398,0,0,0,0,0,0,423.6779218,2500
+pgd_100,0.4811,0,0,0,0,0,0,2079.946837,2500
+cw_20,0.4561,0,0,0,0,0,0,118.3742466,2500
+autoattack,0.3897,0,0,0,0,0,0,251.5657706,2500
