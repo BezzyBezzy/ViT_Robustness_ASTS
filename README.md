@@ -1,300 +1,44 @@
-# ASTS: Attention-based Soft Temperature Scaling
-
-Adversarial robustness training for Vision Transformers using learnable per-head attention temperatures.
-
-## Overview
-
-ASTS introduces learnable temperature parameters into the attention mechanism of Vision Transformers. During adversarial training, these temperatures are optimized alongside multiple loss components designed to improve robustness.
-
-**Key Features:**
-- Per-head learnable temperature scaling in attention layers
-- TRADES-style logit KL loss for improved robustness
-- Attention divergence loss (KL or JS) for attention consistency
-- Per-layer attention weighting (uniform, linear, or exponential)
-- Optional attention entropy regularization
-- Support for curriculum adversarial training (progressive attack strength)
-- Multiple attack types: PGD, FGSM, CW, AutoAttack
-- Mixed precision (AMP) training for faster execution
-- Stratified data sampling with class distribution preservation
-
-## Installation
-
-```bash
-# Clone the repository
+ASTS: Adaptive Self-Attention Temperature ScalingAdversarial robustness training for Vision Transformers using learnable per-head attention temperatures.OverviewVision Transformers (ViTs) are highly susceptible to Attention Hijacking, where an adversarial attack (such as a localized patch or gradient noise) forces the model to concentrate its attention mass on a corrupted region, effectively blinding the semantic pathways of the network.ASTS combats this by introducing learnable, per-head temperature parameters into the self-attention mechanism. Using the Clean-Adversarial Attention Alignment (CA3) algorithm, these temperatures are dynamically optimized during adversarial training. By penalizing the divergence (via KL or JS) between a clean attention map and its adversarial counterpart, the model learns to independently self-regulate the sharpness of its attention heads, filtering out noise while preserving visual stability.Key Features:Per-head learnable temperature scaling in attention layersCA3 Algorithm: Alignment of clean and adversarial attention mapsSupport for asymmetric (KL) and symmetric (Jensen-Shannon) divergence penaltiesCurriculum adversarial training (progressive attack strength, e.g., PGD to CW transitions)Automated extraction of temperature dynamics (IQR, Box plots, Top 10 head progressions)Key Findings & Empirical ResultsBased on our evaluation using a ViT-B model fine-tuned on CIFAR-10, the ASTS methodology reveals several novel insights into how Vision Transformers defend themselves against adversarial attacks:1. The Robustness-Accuracy Trade-offBy tuning the objective function, ASTS can navigate the fundamental trade-off between natural accuracy and adversarial robustness:Maximum Robustness (Adv-Only Task Loss + KL Divergence): By optimizing strictly on adversarial examples, the model achieved 48.11% on PGD-100 and 38.97% on AutoAttack, but suffered a slight drop in clean accuracy (94.29%).Optimal Balance (Mixed Task Loss + JS Divergence): By preserving equal weight for clean examples and using a symmetric JS penalty, the model maintained a highly competitive 37.61% on AutoAttack while restoring natural clean accuracy to an impressive 96.24%.2. Spatial Distribution of DefenseThe choice of loss function radically alters where the model defends itself:When forced to preserve clean accuracy (Mixed Task Loss), the model cannot radically alter its deep semantic representations. Therefore, it disperses its temperature scaling throughout the early and middle layers to intercept adversarial noise before it reaches deep pathways.Conversely, models trained purely on adversarial data concentrate their defenses almost entirely in the deepest modules (e.g., Modules 10 and 11).3. Threat-Specific Attention Dynamics (The Epoch 15 Pivot)The model learns distinctly different attention distributions depending on the attack optimizer. During the initial PGD training curriculum, the model broadly flattens attention distributions (steadily increasing the temperature variance). However, upon transitioning to the CW attack at Epoch 15, the behavior sharply pivots: the model shrinks its overall temperature variance and relies entirely on a highly specialized, isolated subset of extreme outliers (e.g., temperatures scaling up to $T \approx 25$).InstallationBash# Clone the repository
 git clone <repo-url>
 cd asts
 
 # Create virtual environment
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
-# or: venv\Scripts\activate  # Windows
 
 # Install dependencies
 pip install -r requirements.txt
-```
-
-### Requirements
-- Python 3.9+
-- PyTorch 2.0+
-- CUDA (recommended for training)
-
-## Quick Start
-
-```bash
-# Run with default config (full dataset)
+Quick StartBash# Run with default config (full dataset)
 python run_experiment.py --config configs/default.yaml
-
-# Quick test run with 10% of data
-# Edit configs/default.yaml: set train_ratio: 0.1 and eval_ratio: 0.1
-```
-
-## Configuration
-
-All settings are in YAML config files. See `configs/default.yaml` for the full reference.
-
-### Key Configuration Sections
-
-#### Experiment
-```yaml
-experiment:
-  name: my_experiment    # Run name (used in output folder)
-  seed: 42               # Random seed for reproducibility
-  output_root: outputs   # Output directory
-  device: auto           # auto|cpu|cuda
-```
-
-#### Data
-```yaml
-data:
-  dataset: cifar10       # cifar10|cifar100|imagenet1k
-  image_size: 224
-  batch_size: 64
-  num_workers: 4
-  val_split: 0.1         # Fraction of train data for validation
-  train_ratio: 1.0       # Stratified sampling ratio (0.0-1.0)
-  eval_ratio: 1.0        # Stratified sampling ratio for test/val
-  imagenet_dir: null     # Required if dataset=imagenet1k
-```
-
-**Stratified Sampling**: Set `train_ratio` and `eval_ratio` to values < 1.0 for faster experiments while preserving class distribution. For example, `eval_ratio: 0.1` uses 10% of test data with balanced classes.
-
-#### Model
-```yaml
-model:
-  hf_model_id: nateraw/vit-base-patch16-224-cifar10
-  num_labels: 10
-  normalize:
-    mean: [0.485, 0.456, 0.406]
-    std: [0.229, 0.224, 0.225]
-```
-
-#### ASTS (Temperature Scaling)
-```yaml
-asts:
-  enabled: true
-  parameterization: exp   # exp|softplus
-  init_temperature: 1.0   # Initial temperature value
-  eps: 1.0e-6
-```
-
-#### Training
-```yaml
-training:
-  epochs: 20
-  lr: 5.0e-4
-  weight_decay: 0.01
-  grad_clip_norm: 1.0
-  use_amp: true           # Mixed precision (FP16) - recommended
-  torch_compile: false    # PyTorch 2.0+ compilation (experimental)
-  eval_every_epochs: 1
-  save_every_epochs: 1
-```
-
-#### Trainable Parameters
-```yaml
-trainable:
-  train_temperatures: true      # Train ASTS temperature parameters
-  train_classifier_head: true   # Train classification head
-  train_layernorm: false        # Train LayerNorm parameters
-  train_backbone: false         # Train full backbone (expensive)
-```
-
-#### Objective
-
-```yaml
-objective:
-  lambda_attn: 0.5             # Weight for attention divergence loss
-  ce_mode: adv_only            # adv_only|clean_only|mixed (CRITICAL: use adv_only for robustness)
+ConfigurationAll settings are in YAML config files. See configs/default.yaml for the full reference.Objective (The CA3 Algorithm)YAMLobjective:
+  lambda_attn: 0.5             # Weight for CA3 attention divergence loss
+  ce_mode: mixed               # adv_only|clean_only|mixed
   beta_clean: 0.5              # Weight for clean CE (if ce_mode=mixed)
-  attn_divergence_mode: kl     # kl|js (js = symmetric Jensen-Shannon divergence)
+  attn_divergence_mode: js     # kl|js (js = symmetric Jensen-Shannon divergence)
   
-  temperature_reg:             # Temperature regularization (pulls temps toward target)
-    enabled: false
-    weight: 0.0
-    target: 1.0
-    clamp_min: 0.1
-    clamp_max: 10.0
-  
-  trades:                      # TRADES-style logit KL loss (RECOMMENDED for robustness)
+  trades:                      # TRADES-style logit KL loss
     enabled: true
-    lambda: 6.0                # Weight for TRADES loss (default from paper: 6.0)
-    temperature: 1.0           # Temperature for softmax in KL computation
-  
-  attn_entropy:                # Attention entropy regularization (prevents attention collapse)
-    enabled: false
-    weight: 0.1
-    target: 2.0                # Target entropy (higher = more uniform attention)
-  
-  layer_weighting:             # Per-layer attention loss weighting
-    mode: linear               # uniform|linear|exponential (later layers weighted more)
-    base: 1.5                  # Base for exponential mode
-```
-
-**Important Notes:**
-- `ce_mode: adv_only` is **critical** for robustness - the model must learn to classify adversarial examples
-- `trades.enabled: true` adds TRADES-style logit consistency loss from [Zhang et al., 2019]
-- `layer_weighting: linear` weights later transformer layers more heavily (often more important for classification)
-
-#### Attacks
-```yaml
-attacks:
+    lambda: 6.0                # Weight for TRADES loss
+    temperature: 1.0           
+Attacks (Curriculum Schedule)To reproduce the curriculum from the ASTS paper, attacks progressively increase in strength before shifting optimization methods (PGD to CW) at Epoch 15:YAMLattacks:
   train:
     attacks:
-      # Curriculum: start weak, increase strength (recommended)
+      - name: pgd
+        epochs: 4
+        params: { eps: 0.015686, alpha: 0.003922, steps: 7 }   # 4/255 budget
       - name: pgd
         epochs: 5
-        params:
-          eps: 0.015686    # 4/255
-          alpha: 0.003922  # 1/255
-          steps: 7
+        params: { eps: 0.023529, alpha: 0.003922, steps: 10 }  # 6/255 budget
       - name: pgd
-        epochs: 7
-        params:
-          eps: 0.023529    # 6/255
-          steps: 10
-      - name: pgd
-        epochs: 8
-        params:
-          eps: 0.031373    # 8/255 (matches eval)
-          steps: 20
-
-  eval:
-    enabled: true
-    attacks:
-      - name: pgd
-        params: { eps: 0.031373, steps: 20 }
-      - name: autoattack
-        params: { eps: 0.031373, norm: Linf, version: standard }
-```
-
-**Supported Attacks**: `pgd`, `fgsm`, `cw`, `autoattack`, `bim`, `mifgsm`
-
-## Output Structure
-
-```
-outputs/
-└── 2024-01-01_12-00-00_my_experiment/
-    ├── config_resolved.yaml    # Saved config
-    ├── logs/
-    │   └── train.log           # Training logs
-    ├── checkpoints/
-    │   ├── best.pt             # Best validation checkpoint
-    │   └── last.pt             # Latest checkpoint
-    ├── metrics/
-    │   ├── train_metrics.csv   # Per-epoch training losses + temperature stats
-    │   ├── val_metrics.csv     # Validation accuracy
-    │   ├── test_metrics.csv    # Final test results
-    │   └── test_metrics_baseline.csv  # Pre-training baseline
-    └── plots/
-        ├── train_losses.png
-        ├── val_accuracy.png
-        ├── temperatures_heatmap.png
-        └── ...
-```
-
-### Training Metrics CSV Columns
-
-The `train_metrics.csv` now includes:
-- `loss_total`, `loss_ce`, `loss_attn_div`, `loss_temp_reg`, `loss_trades`, `loss_entropy`
-- `temp_mean`, `temp_std`, `temp_min`, `temp_max` (temperature statistics per epoch)
-
-## Loss Function
-
-The total loss combines multiple components:
-
-```
-L_total = L_ce + λ_attn * L_attn_div + L_temp_reg + λ_trades * L_trades + λ_entropy * L_entropy
-```
-
-Where:
-- **L_ce**: Cross-entropy on adversarial examples (when `ce_mode: adv_only`)
-- **L_attn_div**: KL or JS divergence between clean and adversarial attention patterns
-- **L_temp_reg**: Optional L2 regularization on temperatures
-- **L_trades**: KL(p_adv || p_clean) on logits (TRADES-style)
-- **L_entropy**: Optional attention entropy regularization
-
-## Performance Optimizations
-
-This codebase includes several optimizations for faster training:
-
-| Optimization | Speedup | Config |
-|--------------|---------|--------|
-| Mixed Precision (AMP) | 1.5-2x | `training.use_amp: true` |
-| torch.compile() | 10-30% | `training.torch_compile: true` |
-| Persistent DataLoader workers | 5-15% | Automatic |
-| Per-layer attention computation | ~10% | Built-in |
-| Cached module references | ~5% | Built-in |
-
-## Example Configs
-
-### Fast Debug Run
-```yaml
-data:
-  train_ratio: 0.1
-  eval_ratio: 0.1
-training:
-  epochs: 2
-  use_amp: true
-```
-
-### Full Robust Training (Recommended)
-```yaml
-data:
-  train_ratio: 1.0
-  eval_ratio: 1.0
-training:
-  epochs: 20
-  use_amp: true
-objective:
+        epochs: 6
+        params: { eps: 0.031373, alpha: 0.003922, steps: 20 }  # 8/255 budget
+      - name: cw
+        epochs: 5
+        params: { eps: 0.031373, steps: 15 }                   # 8/255 budget
+Reproducing Paper ResultsTo replicate the specific configurations detailed in the ASTS research paper:Config 2: Maximum Robustness (Adv Only + KL)This configuration concentrates temperature scaling in the deepest layers of the network, achieving the highest robust accuracy at the cost of slight natural accuracy degradation.YAMLobjective:
   ce_mode: adv_only
-  trades:
-    enabled: true
-    lambda: 6.0
-  layer_weighting:
-    mode: linear
-```
-
-### ImageNet-1K
-```yaml
-data:
-  dataset: imagenet1k
-  imagenet_dir: /path/to/imagenet
-  train_ratio: 0.1  # Recommended for initial experiments
-model:
-  hf_model_id: google/vit-base-patch16-224
-  num_labels: 1000
-```
-
-## References
-
-- TRADES: [Theoretically Principled Trade-off between Robustness and Accuracy](https://arxiv.org/abs/1901.08573) (Zhang et al., 2019)
-- QUEST: [Query-based Soft Token Pruning](https://arxiv.org/abs/2604.00199)
-- AutoAttack: [Reliable evaluation of adversarial robustness](https://arxiv.org/abs/2003.01690)
-
-## License
-
-[Add your license here]
-
-## Citation
-
-[Add citation if applicable]
+  attn_divergence_mode: kl
+Config 4: Optimal Trade-off (Mixed + JS)This configuration disperses temperature scaling throughout the early and middle layers to protect clean semantic pathways. Using symmetric JS divergence, it preserves high natural accuracy while maintaining competitive robustness.YAMLobjective:
+  ce_mode: mixed
+  beta_clean: 0.5
+  attn_divergence_mode: js
